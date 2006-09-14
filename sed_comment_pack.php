@@ -12,7 +12,7 @@ $plugin['description'] = 'Additional comment tags.';
 // 2 = library; loaded only when include_plugin() or require_plugin() is called
 $plugin['type'] = 0;
 
-@include_once('zem_tpl.php');
+@include_once('../zem_tpl.php');
 
 if (0) {
 ?>
