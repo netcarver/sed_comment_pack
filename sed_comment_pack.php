@@ -130,7 +130,7 @@ This tag can take the following _optional_ attributes&#8230;
 | 'even_class'    | 'even'        | The string for even numbered comments. |
 | 'hide_odd_even' | ''            | Set to any non-empty value to surpress odd/even comment marking.<br/>_Useful in comment preview form._ |
 | 'method'        | 'check-email' | Any value other than 'check-password' will cause the comment email to be checked against the author's email. |
-| 'per_author'    | '1'           | Set to any non-empty value to turn on per-commentator class markup. |
+| 'per_name'      | '1'           | Set to any non-empty value to turn on per-commentator class markup. |
 | 'cmtr_prefix'   | 'commentator' | Prefix used to create the per-commentator css class. |
 
 The format of the output is "*class* *[odd_class|even_class]* *[author_class]*"<br/>_Where the highlighted names are the names of the attributes of the tag._
@@ -146,7 +146,7 @@ Everything should work by default to give you one of these possible outputs&#823
 * "comment odd author"
 * "comment even author"
 
-Here 'commentator_class' is appended if the 'per_author' attribute is not blank. It is built from the cmtr_prefix and the 'name' field the user entered in the comment form. For example, if the commentator enters 'Joe Smith' then the default style of 'commentator-joe-smith' will be appended to the comment. If Joe is one of your friends and you have added a css class to your site for him then that will be used to style his comment. Please note, however, that this styling does not involve any authentication of the name -- so anyone who enters the name of your friend can get his styling applied to their comment.
+Here 'commentator_class' is appended if the 'per_name' attribute is not blank. It is built from the cmtr_prefix and the 'name' field the user entered in the comment form. For example, if the commentator enters 'Joe Smith' then the default style of 'commentator-joe-smith' will be appended to the comment. If Joe is one of your friends and you have added a css class to your site for him then that will be used to style his comment. Please note, however, that this styling does not involve any authentication of the name -- so anyone who enters the name of your friend can get his styling applied to their comment.
 
 The value of the attribute *odd_class* is only output on odd numbered comments, *even_class* on even numbered comments though the odd/even row output can be turned off by setting the attribute *'hide_odd_even'* to a non-blank value.
 
@@ -520,7 +520,7 @@ function sed_get_comment_class( $atts )
 		'count'			=> 'up',
 		'class'			=> 'comment',
 		'method'		=> 'check-email',
-		'per_author'	=> '1',
+		'per_name'		=> '1',
 		'cmtr_prefix'	=> 'commentator',
 		'log'			=> 'off',
 		// check-password is possible but potentially more insecure that checking an unpublished (private) email address because all email addresses input are stored as part of the txp_discuss table in plain text.
@@ -551,7 +551,7 @@ function sed_get_comment_class( $atts )
 		{
 		//	Append a prefixed, dumbed-down, version of the commentator's name to the class defs.
 		//
-		if( !empty( $per_author ) )
+		if( !empty( $per_name ) )
 			{
 			$basic_name = stripSpace($thiscomment['name']);
 			$out_result .= " $cmtr_prefix-$basic_name";
