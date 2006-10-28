@@ -490,6 +490,9 @@ function sed_comment_time( $atts )
 	extract( lAtts( array(
 		'class'			=> 'comment_time',
 		'wraptag'		=> 'span',
+		'format' 		=> '',
+		'gmt'			=> '',
+		'lang'	 		=> '',
 		), $atts));
 
 	if( isset( $atts['class']) )
