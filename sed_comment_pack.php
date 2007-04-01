@@ -1,7 +1,7 @@
 <?php
 
 $plugin['name'] = 'sed_comment_pack';
-$plugin['version'] = '0.5';
+$plugin['version'] = '0.6';
 $plugin['author'] = 'Stephen Dickinson';
 $plugin['author_uri'] = 'http://txp-plugins.netcarving.com';
 $plugin['description'] = 'Additional comment tags.';
@@ -16,14 +16,6 @@ $plugin['type'] = 0;
 
 if (0) {
 ?>
-<!-- TO DO LIST
-
-DONE	Add mangled commentators name to the get_comment_class. Rational: Allow special styling for friends visiting your site.
-v0.6	Add auto-banning feature for IP addresses that submit multiple, spam evaluated, comments.
-
--->
-<!-- COMPLETED WORK
--->
 <!-- CSS
 # --- BEGIN PLUGIN CSS ---
 	<style type="text/css">
@@ -44,13 +36,12 @@ v0.6	Add auto-banning feature for IP addresses that submit multiple, spam evalua
 
 h1. SED Comment Pack Plugin
 
-v 0.5 October 23rd, 2006.
+v 0.6 March 31st, 2007.
 
 New in this version...
 
-* Support of per-commentator styling via new css class appended to every comment.<br/>
-This allows you to style any of your friends comments as you want.
-* Support for TxP 4.0.4.
+* Support for tracking new comments added since a site visitor's last look at the site.
+
 
 h2. Summary
 
@@ -61,15 +52,19 @@ The *ajw_if_comment_author* plugin was my first port of call to try to setup my 
 I also found that the conditional tag complicated the logic in the form and wanted to simplify this. So, rather than having a conditional tag that split my TXP comments form into two logical branches, I wanted tags that simply returned the right thing, no matter if an author comment or not. These tags moved the data and processing from the form--simplifying it greatly.
 
 These following tags allow me to do that&#8230;
+
 * <code><txp:sed_get_comment_class/></code> tag specifically to calculate the class to apply to a comment block.
 * <code><txp:sed_if_author_comment_string/></code> tag to conditionally output a string to mark up any author comments.
 * <code><txp:sed_comment_number/></code> tag to output the sequential comment number on the page.
 * <code><txp:sed_comment_time/></code> tag upgrades the default TXP tag with wraptag and class.
 
 In addition, the following tags are available&#8230;
+
 * <code><txp:sed_if_comments/></code> tag is a replacement for the <code><txp:if_comments/></code> tag. It can be put in page templates.
 
 All of them are designed for use in the TXP forms called *comments* and, _if you use it_, *comments_preview*.
+
+Tracking new comments can now be achieved by using the <code><txp:sed_cp_new_comments_count /></code> and <code><txp:sed_cp_new_comments_digest /></code> tags in pages or forms.
 
 <hr/>
 
@@ -214,6 +209,34 @@ Replacement for the native txp tag "comment_time":http://textpattern.net/wiki/in
 
 <hr width="25%"/>
 
+h3. <code><txp:sed_cp_new_comment_count/></code>
+
+Place this tag in your page/form template to get a string showing the number of new comments posted since the visitor last came to the site.
+
+| *Attribute*       | *Default Value*         | *Description* |
+| 'string'          | 'New comments: {count}' | String used to format the count |
+| 'show_zero_count' | 'n'                     | Set to 'y' to force the string to show, even if there are no new comments |
+| 'max_visit'       | 7200                    | length of visit time-out in seconds |
+| 'wraptag'         | 'p'                     | This is the normal TxP attribute    |
+
+<hr width="25%"/>
+
+
+h3. <code><txp:sed_cp_new_comment_digest/></code>
+
+This tag outputs a list of the articles having comments that have been added since the user's last visit.
+The number of new comments for each article is shown in parenthesis after the article title.
+
+| *Attribute*       | *Default Value*         | *Description* |
+| 'max_visit'       | 7200                    | length of visit time-out in seconds |
+| 'class'           | __FUNCTION__            | Class to apply to the rendered list |
+| 'wraptag'         | 'ul'                    | This is the normal TxP attribute    |
+| 'break'           | 'li'                    | This is the normal TxP attribute    |
+| 'label'           | ''                      | This is the normal TxP attribute    |
+| 'labeltag'        | ''                      | This is the normal TxP attribute    |
+| 'limit'           | '0'                     | Set this to a positive, non-zero, integer to limit the number of articles in the resulting list |
+| 'more'            | ' &#8230;'              | This string will be appended to the last list item if the list has more items than the limit |
+
 <hr/>
 
 h1. CSS classes and markup.
@@ -265,8 +288,7 @@ Inspired by the AJW_ family of plugins from "Compooter":http://compooter.org
 }
 # --- BEGIN PLUGIN CODE ---
 // ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
-
-function _sed_dump_trace()
+function _sed_cp_dump_trace()
 	{
 	global $logfile;
 	$level = 0;
@@ -285,7 +307,7 @@ function _sed_dump_trace()
 			}
 	}
 
-function _sed_log( $message , $line )
+function _sed_cp_log( $message , $line )
 	{
 	global $logging;
 	global $logfile;
@@ -294,7 +316,7 @@ function _sed_log( $message , $line )
 		error_log( n.$message.'['.$line.'].' , 3 , $logfile );
 	}
 
-function _sed_if_author_comment( $method )
+function _sed_cp_if_author_comment( $method )
 	{
 	global $thiscomment, $thisarticle;
 	static $_sed_cached_author_data;
@@ -311,21 +333,22 @@ function _sed_if_author_comment( $method )
 	//
 	$_author_id = strtolower($thisarticle['authorid']);
 	//	$_author_id = $thisarticle['authorid'];	// perhaps the strtolower made the query match no rows!
-	//	_sed_log( "Article author ID [{$thisarticle['authorid']}], Auhtor_id [$_author_id]." , __LINE__ );
+	//	_sed_cp_log( "Article author ID [{$thisarticle['authorid']}], Auhtor_id [$_author_id]." , __LINE__ );
 	if( !empty( $_author_id ) )
 		{
 		if( !isset($_sed_cached_author_data) or empty($_sed_cached_author_data) )
 			{
+			$safe_usr = _sed_cp_safe_pfx( 'txp_users' );
 			if( 'check-password' == $method )
 				{
 				//	Pull out the author's real name IF the value in the email field of the form matches the author's password...
 				//
-				$q = "SELECT name,RealName,email FROM ".PFX."txp_users WHERE name='$_author_id' and (pass = password(lower('".doSlash($_commentors_mail_or_pwd)."')) or pass = password('".doSlash($_commentors_mail_or_pwd)."')) and (privs > 0) LIMIT 1";
+				$q = "SELECT name,RealName,email FROM $safe_usr WHERE name='$_author_id' and (pass = password(lower('".doSlash($_commentors_mail_or_pwd)."')) or pass = password('".doSlash($_commentors_mail_or_pwd)."')) and (privs > 0) LIMIT 1";
 				}
 			else{
 				//	Lookup the author's name and email using the author's id...
 				//
-				$q = "SELECT name,RealName,email FROM ".PFX."txp_users WHERE name='$_author_id' LIMIT 1";
+				$q = "SELECT name,RealName,email FROM $safe_usr WHERE name='$_author_id' LIMIT 1";
 				}
 			$_sed_cached_author_data = getRow( $q );
 			}
@@ -347,31 +370,40 @@ function _sed_if_author_comment( $method )
 						if( $_authors_mail == $_commentors_mail_or_pwd )
 							$out_result = TRUE;
 						else{
-							_sed_log( "Author's email != Commentor's email: [$_authors_mail] != [$_commentors_mail_or_pwd]." , __LINE__ );
+							_sed_cp_log( "Author's email != Commentor's email: [$_authors_mail] != [$_commentors_mail_or_pwd]." , __LINE__ );
 							}
 						}
 					else{
-						_sed_log( "Author's email is empty, cannot check it!" , __LINE__ );
+						_sed_cp_log( "Author's email is empty, cannot check it!" , __LINE__ );
 						}
 					}
 				}
 			else{
-				_sed_log( "Article author's name != Commentor's name: [$_authors_name] != [$_commentors_name]." , __LINE__ );
+				_sed_cp_log( "Article author's name != Commentor's name: [$_authors_name] != [$_commentors_name]." , __LINE__ );
 				}
 			}
 		else{
-			_sed_log( "Access to txp_users where name='$_author_id' returned no rows!" , __LINE__ );
+			_sed_cp_log( "Access to txp_users where name='$_author_id' returned no rows!" , __LINE__ );
 			}
 		}
 	else{
-		_sed_log( "Author check failed: Empty author ID." , __LINE__ );
+		_sed_cp_log( "Author check failed: Empty author ID." , __LINE__ );
 		}
 
-	//	_sed_log( "Finished Author Check, returning [$out_result]." , __LINE__ );
+	//	_sed_cp_log( "Finished Author Check, returning [$out_result]." , __LINE__ );
 	return $out_result;
 	}
 
-function _sed_get_comment_number( $count='up' )
+function _sed_cp_safe_pfx( $table )
+	{
+	if( is_callable( 'safe_pfx' ) )
+		$table = safe_pfx( $table );
+	else
+		$table = PFX.$table;
+
+	return $table;
+	}
+function _sed_cp_get_comment_number( $count='up' )
 	{
 	global $thiscomment, $thisarticle , $start;			//	Pull these in.
 	global $sed_last_comment_id, $sed_comment_number;	//	Define these.
@@ -403,7 +435,7 @@ function _sed_get_comment_number( $count='up' )
 	return $result;
 	}
 
-function _sed_if_outside_period( $start_time, $period_in_mins, $time_to_check, &$remaining )
+function _sed_cp_if_outside_period( $start_time, $period_in_mins, $time_to_check, &$remaining )
 	{
 	$out = false;
 	$lifespan = intval(60 * floatval($period_in_mins) );
@@ -433,11 +465,87 @@ function _sed_if_outside_period( $start_time, $period_in_mins, $time_to_check, &
 	return $out;
 	}
 
+function _sed_cp_get_comments( $quanta = 7200 )
+	{
+	global $_sed_cp_new_cmts;
+	static $results;
+	$cookie_name = 'sed_cp_last_visit';
+
+	#
+	#	Get the time now...
+	#
+	$year = (3600 * 24 * 365);
+	$now = time();
+	$expiry = $now + $year;
+
+	#
+	#	Attempt to read the last visit cookie...
+	#
+	$last_visit = cs( $cookie_name );
+	if( !empty( $last_visit ) )
+		{
+		#
+		#	Calc the time-span between $now and the last-visit time...
+		#
+		$diff = $now - $last_visit;
+		#
+		#	If it's beyond the 'visit' quanta, reset the cookie's value to now...
+		#
+		$new_visit = $diff > $quanta;
+		}
+
+	if( empty( $last_visit ) or $new_visit )
+		{
+		#
+		#	Just set the cookie time to now. Nothing else to do!
+		#
+		setcookie( $cookie_name , $now , $expiry );
+		$results = array();
+		$_sed_cp_new_cmts = 0;
+		}
+	else
+		{
+		if( !isset( $results ) )
+			{
+			$safe_txp = _sed_cp_safe_pfx( 'textpattern' );
+			$safe_cmt = _sed_cp_safe_pfx( 'txp_discuss' );
+			$q = "	select		parentid,
+								min(concat('',com.discussid)) first_new,
+								count(*) new_com_count,
+								art.Title
+					from 		$safe_cmt com,
+								$safe_txp art
+					where 		unix_timestamp(com.posted) > $last_visit and
+								com.visible=".VISIBLE." and
+								com.parentid = art.ID
+					group by	com.parentid
+					order by 	com.posted desc";
+
+			$rs = getRows($q , 0);
+			if ($rs)
+				{
+				$results = $rs;
+				$_sed_cp_new_cmts = 0;
+				foreach( $results as $row )
+					$_sed_cp_new_cmts += $row['new_com_count'];
+				}
+			else
+				{
+				$results = array();
+				$_sed_cp_new_cmts = 0;
+				}
+			}
+		}
+
+	return $results;
+	}
+
+
 // ----------------  END PRIVATE FUNCTIONS  ------------------
 	/*
-	register_callback('_sed_comment_save', 'comment.save');
+	register_callback('_sed_cp_comment_save', 'comment.save');
 
-	function _sed_comment_save()
+	function _sed_cp_comment_save()
 		{
 		global $thisarticle, $prefs;
 
@@ -454,8 +562,7 @@ function _sed_if_outside_period( $start_time, $period_in_mins, $time_to_check, &
 		}
 	*/
 
-// ---------------- NEW TAG HANDLERS FOLLOW ------------------
-
+// ------------------ TAG HANDLERS FOLLOW --------------------
 function sed_if_author_comment_string( $atts )
 	{
 	global $logging;
@@ -474,20 +581,19 @@ function sed_if_author_comment_string( $atts )
 
 	if( !empty($string) )
 		{
-		if( _sed_if_author_comment( $method ) )
+		if( _sed_cp_if_author_comment( $method ) )
 			$out_result = doTag( $string, $wraptag, $class );
 		}
 
 	return $out_result;
 	}
 
-//
-//	Extends the default txp:comment_time tag to include
-// wraptag and class.
-//
 function sed_comment_time( $atts )
 	{
-	extract( lAtts( array(
+	/*
+	Extends the default txp:comment_time tag to include wraptag and class.
+	*/
+ 	extract( lAtts( array(
 		'class'			=> 'comment_time',
 		'wraptag'		=> 'span',
 		'format' 		=> '',
@@ -538,7 +644,7 @@ function sed_get_comment_class( $atts )
 	//
 	if( empty($hide_odd_even) )
 		{
-		$_comment_num = _sed_get_comment_number( $count );
+		$_comment_num = _sed_cp_get_comment_number( $count );
 		if( 0 == ($_comment_num & 0x01) )
 			$out_result .= ' '.$even_class;
 		else
@@ -548,7 +654,7 @@ function sed_get_comment_class( $atts )
 	//
 	//	Process the author_class...
 	//
-	if( !empty($author_class) and ( _sed_if_author_comment($method) ) )
+	if( !empty($author_class) and ( _sed_cp_if_author_comment($method) ) )
 		$out_result .= " $author_class";
 	else
 		{
@@ -576,7 +682,7 @@ function sed_comment_number( $atts )
 		'count' => 'up',	// Optional, set to 'down' to get decrementing comment count (for example, for guestbook integration.
 	),$atts));
 
-	return _sed_get_comment_number( $count );
+	return _sed_cp_get_comment_number( $count );
 	}
 
 	//
@@ -604,6 +710,72 @@ function sed_if_comments($atts, $thing)
 	return parse(EvalElse($thing, ( $count > 0)));
 	}
 
-// ----------------  END TAG HANDLERS  ------------------
+
+function sed_cp_new_comment_count( $atts )
+	{
+	global $_sed_cp_new_cmts;
+
+	/*
+	Outputs the number of new comments since the viewer's last visit to the site (if any)...
+	*/
+	extract( lAtts( array(
+		'string'			=> 'New comments: {count}',
+		'wraptag'			=> 'p',
+		'show_zero_count'	=> 'n',
+		'max_visit'			=> 7200,	# length of visit time-out in seconds
+		),$atts));
+
+	$show_zero_count = ($show_zero_count === 'y');
+
+	$new_comments = _sed_cp_get_comments( $max_visit );
+	if( $_sed_cp_new_cmts > 0 || $show_zero_count )
+		return tag( strtr( $string , array( '{count}' => $_sed_cp_new_cmts ) ) , $wraptag );
+	}
+function sed_cp_new_comment_digest( $atts )
+	{
+	global $_sed_cp_new_cmts;
+
+	/*
+	Outputs a digest of comments since the viewer's last visit to the site (if any)...
+	*/
+	extract( lAtts( array(
+		'class'				=> __FUNCTION__ ,
+		'wraptag'			=> 'ul',
+		'break'				=> 'li',
+		'label'				=> '',
+		'labeltag'			=> '',
+		'limit'				=> '0',			# set to a number > 0 to limit the list length
+		'more'				=> ' &#8230;',
+		'max_visit'			=> 7200,		# length of visit time-out in seconds
+		),$atts));
+
+	$new_comments = _sed_cp_get_comments( $max_visit );
+	if( $_sed_cp_new_cmts > 0 )
+		{
+		$row_count = count($new_comments);
+
+		if( $limit === '0'  ||  intval($limit) < 0  ||  $row_count === intval($limit) )
+			$limit = $row_count+1;
+		else
+			$limit = intval( $limit );
+
+		foreach( $new_comments as $comment )
+			{
+			extract( $comment );
+			$item = href( escape_title($Title)."($new_com_count)" , permlinkurl_id($parentid).'#c'.$first_new );
+			if( --$limit <= 0 )
+				{
+				$items[] = $item.$more;
+				break;
+				}
+			else
+				$items[] = $item;
+			}
+		return doLabel($label, $labeltag).doWrap($items, $wraptag, $break, $class);
+		}
+	return '';
+	}
+
+// ------------------  END TAG HANDLERS  ---------------------
 # --- END PLUGIN CODE ---
 ?>
