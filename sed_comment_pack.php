@@ -1,7 +1,18 @@
 <?php
 
+$plugin['revision'] = '$LastChangedRevision$';
+
+$revision = @$plugin['revision'];
+if( !empty( $revision ) )
+	{
+	$parts = explode( ' ' , trim( $revision , '$' ) );
+	$revision = $parts[1];
+	if( !empty( $revision ) )
+		$revision = '.' . $revision;
+	}
+
 $plugin['name'] = 'sed_comment_pack';
-$plugin['version'] = '0.7';
+$plugin['version'] = '0.7' . $revision;
 $plugin['author'] = 'Stephen Dickinson';
 $plugin['author_uri'] = 'http://txp-plugins.netcarving.com';
 $plugin['description'] = 'Additional comment tags.';
@@ -36,12 +47,11 @@ if (0) {
 
 h1. SED Comment Pack Plugin
 
-v 0.6 March 31st, 2007.
+v 0.7 December 3rd, 2007.
 
 New in this version...
 
-* Support for tracking new comments added since a site visitor's last look at the site.
-
+* Support for delayed comment posting and culling.
 
 h2. Summary
 
@@ -237,6 +247,29 @@ The number of new comments for each article is shown in parenthesis after the ar
 | 'limit'           | '0'                     | Set this to a positive, non-zero, integer to limit the number of articles in the resulting list |
 | 'more'            | ' &#8230;'              | This string will be appended to the last list item if the list has more items than the limit |
 
+<hr width="25%"/>
+
+
+h3. <code><txp:sed_comments/></code>
+
+This is a straight replacement for the native @comments@ tag. All of its attributes
+are the same. However, it introduces delayed posting and culling of comments based
+upon the value of a packed custom field called @'sed per-article vars'@ in it's owning article.
+
+| *Attribute*       | *Default Value*         | *Description* |
+| 'sed_delay'       | '0'                     | Delay to visible in minutes with '0' meaning no delay. |
+| 'sed_ttl'         | ''                      | Time to live in minutes. Empty means forever.          |
+| 'sed_ttl_grace'   | ''                      | Use this to restrict culling. A grace period (minutes) from the saving of the owning article, during which any posted comments will not be culled according to the ttl and on_cull variables. Empty means forever. Zero means no grace period. |
+| 'sed_on_cull'     | 'hide'                  | Action to take when comment is to be culled. hide/spam/delete   |
+
+The 'sed_ttl_grace' period can be used to allow the author of an article to post comments to their own article that do not automatically get culled according to the TTL timeout.
+
+The txp-plugins site uses the following on its public comments test page to delay posting of comments by 30 seconds and to hide all posted comments after two hours...
+
+@ttl='120';ttl_grace='180';delay='0.5';on_cull='hide'@
+
+*NB* I gave myself 3 hours of grace after first writing the article, in which to post my own comments that would avoid the culling rules.
+
 <hr/>
 
 h1. CSS classes and markup.
@@ -291,7 +324,7 @@ Inspired by the AJW_ family of plugins from "Compooter":http://compooter.org
 
 // ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
 
-function _sed_get_sed_vars( $args )
+function _sed_cp_get_sed_vars( $args )
 	{
 	$out = array();
 
@@ -558,12 +591,12 @@ function _sed_cp_get_comments( $quanta = 7200 )
 	return $results;
 	}
 
-function _sed_delete_comment( $comment ) {
+function _sed_cp_delete_comment( $comment ) {
 	$id = $comment['discussid'];
 	safe_delete("txp_discuss", "discussid = '$id'" );
 	}
 
-function _sed_update_comment( $comment, $action ) {
+function _sed_cp_update_comment( $comment, $action ) {
 	$actions = array( 'hide' => MODERATE, 'spam' => SPAM );
 	$id = $comment['discussid'];
 	$visible = $actions[$action];
@@ -821,19 +854,20 @@ function sed_comments($atts)
 		'break'		=> ($comments_are_ol ? 'li' : 'div'),
 		'class'		=> __FUNCTION__,
 		'breakclass'=> '',
+		'sort'		=> 'posted ASC',
 	),$atts));
 
-	if (is_array($thisarticle))
-		extract($thisarticle);
+	assert_article();
 
-	if (@$thisid)
-		$id = $thisid;
+	if (is_array($thisarticle)) extract($thisarticle);
+
+	if (@$thisid) $id = $thisid;
 
 	//
 	//	Extract the sed article overrides...
 	//	Access the custom field that houses the vars and explode the string on ';' boundaries.
 	//
-	$sed_vars = _sed_get_sed_vars( @$thisarticle['SED Per-Article Vars'] );
+	$sed_vars = _sed_cp_get_sed_vars( @$thisarticle['sed per-article vars'] );
 
 	$sed_vars = lAtts( array(
 		'sed_delay'			=> '0',		// delay to visible in minutes. Empty/zero means no delay.
@@ -843,21 +877,19 @@ function sed_comments($atts)
 		), $sed_vars );
 	extract( $sed_vars );
 
-	$Form = fetch_form($form);
-
 	if (!empty($comment_preview)) {
 		$preview = psas(array('name','email','web','message','parentid','remember'));
 		$preview['time'] = time();
 		$preview['discussid'] = 0;
 		$preview['message'] = markup_comment($preview['message']);
 		$GLOBALS['thiscomment'] = $preview;
-		$comments[] = parse($Form).n;
+		$comments[] = parse_form($form).n;
 		unset($GLOBALS['thiscomment']);
 		$out = doWrap($comments,$wraptag,$break,$class,$breakclass);
 		}
 	else {
 		$rs = safe_rows_start("*, unix_timestamp(posted) as time", "txp_discuss",
-			"parentid='$id' and visible=".VISIBLE." order by posted asc");
+			'parentid='.intval($id).' and visible='.VISIBLE.' order by '.doSlash($sort));
 
 		$out = '';
 
@@ -881,12 +913,12 @@ function sed_comments($atts)
 					//	Are we in any grace period???
 					//
 					if( !empty( $sed_ttl_grace ) && (0 !=$sed_ttl_grace) )
-						$do_cull_check = _sed_if_outside_period( $thisarticle['posted'],$sed_ttl_grace,$vars['time'],$remaining);
+						$do_cull_check = _sed_cp_if_outside_period( $thisarticle['posted'],$sed_ttl_grace,$vars['time'],$remaining);
 					//
 					//	If not then do the cull checking...
 					//
 					if( $do_cull_check )
-						$culled = _sed_if_outside_period( $vars['time'], $sed_ttl, $now, $remaining );
+						$culled = _sed_cp_if_outside_period( $vars['time'], $sed_ttl, $now, $remaining );
 
 					//
 					//	Display how long to go before culling.
@@ -907,7 +939,7 @@ function sed_comments($atts)
 					//	This is to try and discourage spam-robots that immediately see if their posts appear live.
 					//
 					if( !empty( $sed_delay ) && ($sed_delay > '0') )
-						$show = _sed_if_outside_period( $vars['time'], $sed_delay, $now, $remaining );
+						$show = _sed_cp_if_outside_period( $vars['time'], $sed_delay, $now, $remaining );
 
 					//
 					//	Still hidden so show a place-holder comment instead.
@@ -927,7 +959,7 @@ function sed_comments($atts)
 				$vars['sed_class_extra'] = $extra;
 
 				$GLOBALS['thiscomment'] = $vars;
-				$comments[] = parse($Form).n;
+				$comments[] = parse_form($form).n;
 				unset($GLOBALS['thiscomment']);
 				}
 
@@ -939,9 +971,9 @@ function sed_comments($atts)
 			if ( !empty($culled_comments) ) {
 				foreach( $culled_comments as $comment )	{
 					if( 'delete' == $sed_on_cull )
-						_sed_delete_comment( $comment );
+						_sed_cp_delete_comment( $comment );
 					else
-						_sed_update_comment( $comment, $sed_on_cull );
+						_sed_cp_update_comment( $comment, $sed_on_cull );
 					}
 				update_comments_count($id);
 				}
