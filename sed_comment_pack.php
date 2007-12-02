@@ -1,7 +1,7 @@
 <?php
 
 $plugin['name'] = 'sed_comment_pack';
-$plugin['version'] = '0.6';
+$plugin['version'] = '0.7';
 $plugin['author'] = 'Stephen Dickinson';
 $plugin['author_uri'] = 'http://txp-plugins.netcarving.com';
 $plugin['description'] = 'Additional comment tags.';
@@ -286,8 +286,26 @@ Inspired by the AJW_ family of plugins from "Compooter":http://compooter.org
 -->
 <?php
 }
+
 # --- BEGIN PLUGIN CODE ---
+
 // ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
+
+function _sed_get_sed_vars( $args )
+	{
+	$out = array();
+
+	if( empty( $args ) )
+		return $out;
+
+	$chunks = explode( ';', $args );
+	foreach( $chunks as $chunk ) {
+		list( $key, $value ) = explode( '=', $chunk );
+		$out[ 'sed_'.$key ] = trim( $value, " '\"" );
+		}
+	return $out;
+	}
+
 function _sed_cp_dump_trace()
 	{
 	global $logfile;
@@ -540,6 +558,17 @@ function _sed_cp_get_comments( $quanta = 7200 )
 	return $results;
 	}
 
+function _sed_delete_comment( $comment ) {
+	$id = $comment['discussid'];
+	safe_delete("txp_discuss", "discussid = '$id'" );
+	}
+
+function _sed_update_comment( $comment, $action ) {
+	$actions = array( 'hide' => MODERATE, 'spam' => SPAM );
+	$id = $comment['discussid'];
+	$visible = $actions[$action];
+	safe_update("txp_discuss", "visible = '$visible'", "discussid = '$id'");
+	}
 
 // ----------------  END PRIVATE FUNCTIONS  ------------------
 	/*
@@ -731,6 +760,9 @@ function sed_cp_new_comment_count( $atts )
 	if( $_sed_cp_new_cmts > 0 || $show_zero_count )
 		return tag( strtr( $string , array( '{count}' => $_sed_cp_new_cmts ) ) , $wraptag );
 	}
+
+
+
 function sed_cp_new_comment_digest( $atts )
 	{
 	global $_sed_cp_new_cmts;
@@ -776,6 +808,152 @@ function sed_cp_new_comment_digest( $atts )
 	return '';
 	}
 
+
+function sed_comments($atts)
+	{
+	global $thisarticle, $prefs, $comment_preview, $pretext;
+	extract($prefs);
+
+	extract(lAtts(array(
+		'id'		=> @$pretext['id'],
+		'form'		=> 'comments',
+		'wraptag'	=> ($comments_are_ol ? 'ol' : ''),
+		'break'		=> ($comments_are_ol ? 'li' : 'div'),
+		'class'		=> __FUNCTION__,
+		'breakclass'=> '',
+	),$atts));
+
+	if (is_array($thisarticle))
+		extract($thisarticle);
+
+	if (@$thisid)
+		$id = $thisid;
+
+	//
+	//	Extract the sed article overrides...
+	//	Access the custom field that houses the vars and explode the string on ';' boundaries.
+	//
+	$sed_vars = _sed_get_sed_vars( @$thisarticle['SED Per-Article Vars'] );
+
+	$sed_vars = lAtts( array(
+		'sed_delay'			=> '0',		// delay to visible in minutes. Empty/zero means no delay.
+		'sed_ttl'			=> '',		// time to live in minutes. Empty means forever.
+		'sed_on_cull'		=> 'hide',	// action to take when comment is to be culled. hide/spam/delete
+		'sed_ttl_grace'		=> '',		// use this to restrict culling. A grace period (minutes) during which any posted comments will not be culled according to the ttl and on_cull variables. Empty means forever. Zero means no grace period.
+		), $sed_vars );
+	extract( $sed_vars );
+
+	$Form = fetch_form($form);
+
+	if (!empty($comment_preview)) {
+		$preview = psas(array('name','email','web','message','parentid','remember'));
+		$preview['time'] = time();
+		$preview['discussid'] = 0;
+		$preview['message'] = markup_comment($preview['message']);
+		$GLOBALS['thiscomment'] = $preview;
+		$comments[] = parse($Form).n;
+		unset($GLOBALS['thiscomment']);
+		$out = doWrap($comments,$wraptag,$break,$class,$breakclass);
+		}
+	else {
+		$rs = safe_rows_start("*, unix_timestamp(posted) as time", "txp_discuss",
+			"parentid='$id' and visible=".VISIBLE." order by posted asc");
+
+		$out = '';
+
+		if ($rs) {
+			$comments = array();
+			$culled_comments = array();
+
+			while($vars = nextRow($rs)) {
+				$culled = false;
+				$show = true;
+				$extra = '';
+				$now = time();
+				$remaining = '';
+
+				//
+				//	If the comment is in a deleting page then check if it is to be culled...
+				//
+				if( !empty($sed_ttl) ) {
+					$do_cull_check = true;
+					//
+					//	Are we in any grace period???
+					//
+					if( !empty( $sed_ttl_grace ) && (0 !=$sed_ttl_grace) )
+						$do_cull_check = _sed_if_outside_period( $thisarticle['posted'],$sed_ttl_grace,$vars['time'],$remaining);
+					//
+					//	If not then do the cull checking...
+					//
+					if( $do_cull_check )
+						$culled = _sed_if_outside_period( $vars['time'], $sed_ttl, $now, $remaining );
+
+					//
+					//	Display how long to go before culling.
+					//
+					if( $do_cull_check && !$culled )
+						$vars['message'] .= "<br/><br/><strong>[MARKED FOR DELETION IN $remaining.]</strong>";
+					}
+
+				if( $culled ) {
+					$extra.= ' culled';
+					$culled_comments[] = $vars;
+					$vars['time'] = $now;
+					$vars['message'] .= "<br/><br/><strong>[DELETED.]</strong>";
+					}
+				else {
+					//
+					//	See if the comment is in its "hidden" period.
+					//	This is to try and discourage spam-robots that immediately see if their posts appear live.
+					//
+					if( !empty( $sed_delay ) && ($sed_delay > '0') )
+						$show = _sed_if_outside_period( $vars['time'], $sed_delay, $now, $remaining );
+
+					//
+					//	Still hidden so show a place-holder comment instead.
+					//
+					if( !$show ) {
+						$extra.= ' delay_queue';
+						$vars['name'] = "[DELAYED]";
+						$vars['time'] = $now;
+						$vars['message'] = "A comment has been recorded and is in the delay queue.";
+						$vars['message'] .= "<br/><br/><strong>[REVEALED IN $remaining.]</strong>";
+						}
+					}
+
+				//
+				//	Save the additional css class markup for this comment in the vars before parsing the comment form.
+				//
+				$vars['sed_class_extra'] = $extra;
+
+				$GLOBALS['thiscomment'] = $vars;
+				$comments[] = parse($Form).n;
+				unset($GLOBALS['thiscomment']);
+				}
+
+			$out .= doWrap($comments,$wraptag,$break,$class,$breakclass);
+
+			//
+			//	Process the culled list...
+			//
+			if ( !empty($culled_comments) ) {
+				foreach( $culled_comments as $comment )	{
+					if( 'delete' == $sed_on_cull )
+						_sed_delete_comment( $comment );
+					else
+						_sed_update_comment( $comment, $sed_on_cull );
+					}
+				update_comments_count($id);
+				}
+			}
+		}
+
+	return $out;
+	}
+
+
 // ------------------  END TAG HANDLERS  ---------------------
+
 # --- END PLUGIN CODE ---
+
 ?>
