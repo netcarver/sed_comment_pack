@@ -13,7 +13,7 @@ if( !empty( $revision ) )
 
 $plugin['name'] = 'sed_comment_pack';
 $plugin['version'] = '0.7' . $revision;
-$plugin['author'] = 'Stephen Dickinson';
+$plugin['author'] = 'Netcarver';
 $plugin['author_uri'] = 'http://txp-plugins.netcarving.com';
 $plugin['description'] = 'Additional comment tags.';
 
