@@ -19,16 +19,15 @@ $plugin['description'] = 'Additional comment tags.';
 
 // Plugin types:
 // 0 = regular plugin; loaded on the public web side only
-// 1 = admin plugin; loaded on both the public and admin side
-// 2 = library; loaded only when include_plugin() or require_plugin() is called
+// 1 = admin + public plugin; loaded on both the public and admin side
+// 2 = library; loaded on public interface or when include_plugin() or require_plugin() is called
 $plugin['type'] = 0;
 
 @include_once('../zem_tpl.php');
 
 # --- BEGIN PLUGIN CODE ---
 
-// ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
-
+# ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
 function _sed_cp_get_sed_vars( $args )
 	{
 	$out = array();
@@ -308,7 +307,7 @@ function _sed_cp_update_comment( $comment, $action ) {
 	safe_update("txp_discuss", "visible = '$visible'", "discussid = '$id'");
 	}
 
-// ----------------  END PRIVATE FUNCTIONS  ------------------
+# ----------------  END PRIVATE FUNCTIONS  ------------------
 	/*
 	register_callback('_sed_cp_comment_save', 'comment.save');
 
@@ -329,7 +328,7 @@ function _sed_cp_update_comment( $comment, $action ) {
 		}
 	*/
 
-// ------------------ TAG HANDLERS FOLLOW --------------------
+# ------------------ TAG HANDLERS FOLLOW --------------------
 function sed_if_author_comment_string( $atts )
 	{
 	global $logging;
@@ -687,7 +686,7 @@ function sed_comments($atts)
 
 	return $out;
 	}
-// ------------------  END TAG HANDLERS  ---------------------
+# ------------------  END TAG HANDLERS  ---------------------
 
 # --- END PLUGIN CODE ---
 /*
