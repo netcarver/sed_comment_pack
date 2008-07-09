@@ -5,17 +5,11 @@ $plugin['version'] = '0.7';
 $plugin['author'] = 'Netcarver';
 $plugin['author_uri'] = 'http://txp-plugins.netcarving.com';
 $plugin['description'] = 'Additional comment tags.';
-
-// Plugin types:
-// 0 = regular plugin; loaded on the public web side only
-// 1 = admin + public plugin; loaded on both the public and admin side
-// 2 = library; loaded on public interface or when include_plugin() or require_plugin() is called
 $plugin['type'] = 0;
 
 @include_once('../zem_tpl.php');
 
 # --- BEGIN PLUGIN CODE ---
-
 # ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
 function _sed_cp_get_sed_vars( $args )
 	{
@@ -66,34 +60,25 @@ function _sed_cp_if_author_comment( $method )
 	static $_sed_cached_author_data;
 	$out_result = FALSE;
 
-	//
-	//	Find out the commentor's name and what they entered in the email address field of the comment form.
-	// NB: They might have entered a password!
-	//
+	#	Find out the commentor's name and what they entered in the email address field of the comment form.
+	# NB: They might have entered a password!
 	$_commentors_name 			= strtolower($thiscomment['name']);
 	$_commentors_mail_or_pwd 	= strtolower($thiscomment['email']);
 
-	//	Proceed with author recognition...
-	//
+	#	Proceed with author recognition...
 	$_author_id = strtolower($thisarticle['authorid']);
-	//	$_author_id = $thisarticle['authorid'];	// perhaps the strtolower made the query match no rows!
-	//	_sed_cp_log( "Article author ID [{$thisarticle['authorid']}], Auhtor_id [$_author_id]." , __LINE__ );
+	#	$_author_id = $thisarticle['authorid'];	# perhaps the strtolower made the query match no rows!
+	#	_sed_cp_log( "Article author ID [{$thisarticle['authorid']}], Auhtor_id [$_author_id]." , __LINE__ );
+
 	if( !empty( $_author_id ) )
 		{
 		if( !isset($_sed_cached_author_data) or empty($_sed_cached_author_data) )
 			{
 			$safe_usr = _sed_cp_safe_pfx( 'txp_users' );
 			if( 'check-password' == $method )
-				{
-				//	Pull out the author's real name IF the value in the email field of the form matches the author's password...
-				//
-				$q = "SELECT name,RealName,email FROM $safe_usr WHERE name='$_author_id' and (pass = password(lower('".doSlash($_commentors_mail_or_pwd)."')) or pass = password('".doSlash($_commentors_mail_or_pwd)."')) and (privs > 0) LIMIT 1";
-				}
-			else{
-				//	Lookup the author's name and email using the author's id...
-				//
-				$q = "SELECT name,RealName,email FROM $safe_usr WHERE name='$_author_id' LIMIT 1";
-				}
+				$q = "SELECT name,RealName,email FROM $safe_usr WHERE name='$_author_id' and (pass = password(lower('".doSlash($_commentors_mail_or_pwd)."')) or pass = password('".doSlash($_commentors_mail_or_pwd)."')) and (privs > 0) LIMIT 1";	# Pull out the author's real name IF the value in the email field of the form matches the author's password.
+			else
+				$q = "SELECT name,RealName,email FROM $safe_usr WHERE name='$_author_id' LIMIT 1"; #	Lookup the author's name and email using the author's id
 			$_sed_cached_author_data = getRow( $q );
 			}
 		if( $_sed_cached_author_data )
@@ -102,18 +87,18 @@ function _sed_cp_if_author_comment( $method )
 			if( $_authors_name == $_commentors_name )
 				{
 				if( 'check-password' == $method )
-					$out_result = TRUE;			//	TRUE as we have already checked the password as part of the SQL query.
+					$out_result = TRUE;			#	TRUE as we have already checked the password as part of the SQL query.
 				else
 					{
 					$_authors_mail = $_sed_cached_author_data['email'];
 					if( !empty($_authors_mail) )
 						{
-						//	If the name & email address of the commentor and author match then this
-						// is an 'author' comment.
-						//
+						#	If the name & email address of the commentor and author match then this
+						# is an 'author' comment.
 						if( $_authors_mail == $_commentors_mail_or_pwd )
 							$out_result = TRUE;
-						else{
+						else
+							{
 							_sed_cp_log( "Author's email != Commentor's email: [$_authors_mail] != [$_commentors_mail_or_pwd]." , __LINE__ );
 							}
 						}
@@ -130,11 +115,12 @@ function _sed_cp_if_author_comment( $method )
 			_sed_cp_log( "Access to txp_users where name='$_author_id' returned no rows!" , __LINE__ );
 			}
 		}
-	else{
+	else
+		{
 		_sed_cp_log( "Author check failed: Empty author ID." , __LINE__ );
 		}
 
-	//	_sed_cp_log( "Finished Author Check, returning [$out_result]." , __LINE__ );
+	#	_sed_cp_log( "Finished Author Check, returning [$out_result]." , __LINE__ );
 	return $out_result;
 	}
 
@@ -149,8 +135,8 @@ function _sed_cp_safe_pfx( $table )
 	}
 function _sed_cp_get_comment_number( $count='up' )
 	{
-	global $thiscomment, $thisarticle , $start;			//	Pull these in.
-	global $sed_last_comment_id, $sed_comment_number;	//	Define these.
+	global $thiscomment, $thisarticle , $start;		#	Pull these in.
+	global $sed_last_comment_id, $sed_comment_number;	#	Define these.
 
 	$result = 0;
 
@@ -204,7 +190,7 @@ function _sed_cp_if_outside_period( $start_time, $period_in_mins, $time_to_check
 		$remaining .= ($hours) 	 ? ' '.$hours.'h' : '';
 		$remaining .= ($minutes) ? ' '.$minutes.'m' : '';
 		$remaining .= ($seconds) ? ' '.$seconds.'s' : '';
-		//		$remaining = " seconds";
+		#		$remaining = " seconds";
 		}
 	return $out;
 	}
@@ -297,26 +283,6 @@ function _sed_cp_update_comment( $comment, $action ) {
 	}
 
 # ----------------  END PRIVATE FUNCTIONS  ------------------
-	/*
-	register_callback('_sed_cp_comment_save', 'comment.save');
-
-	function _sed_cp_comment_save()
-		{
-		global $thisarticle, $prefs;
-
-		//
-		//	Is there a per-article variable forcing comment moderation on this article?
-		//
-		$sed_vars = _extract_sed_packed_variable_section( 'cp' );
-
-		if( !empty($sed_vars['sed_moderate']) )
-			{
-			$evaluator =& get_comment_evaluator();
-			$evaluator->add_estimate(MODERATE, 1);
-			}
-		}
-	*/
-
 # ------------------ TAG HANDLERS FOLLOW --------------------
 function sed_if_author_comment_string( $atts )
 	{
@@ -330,7 +296,7 @@ function sed_if_author_comment_string( $atts )
 		'method'		=> 'check-email'
 		), $atts));
 
-	$logging = false;	// No logging from this call!
+	$logging = false;	# No logging from this call!
 
 	$out_result = $else_string;
 
@@ -370,15 +336,15 @@ function sed_get_comment_class( $atts )
 	$logfile = 'textpattern'.DS.'tmp'.DS.'sed_comment_pack.log.txt';
 
 
-	//	print_r( "<br/>===== Start THIS COMMENT =====<br/>\n" );
-	//	print_r( $thiscomment );
-	//	print_r( "<br/>===== Start THIS ARTICLE =====<br/>\n" );
-	//	print_r( $thisarticle );
-	//	print_r( "<br/>==============================<br/><br/>\n" );
+	#	print_r( "<br/>===== Start THIS COMMENT =====<br/>\n" );
+	#	print_r( $thiscomment );
+	#	print_r( "<br/>===== Start THIS ARTICLE =====<br/>\n" );
+	#	print_r( $thisarticle );
+	#	print_r( "<br/>==============================<br/><br/>\n" );
 
 	extract( lAtts( array(
 		'author_class'	=> 'author',
-		'hide_odd_even'	=> '',	// Set to any value to surpress odd/even comment marking.
+		'hide_odd_even'	=> '',	# Set to any value to surpress odd/even comment marking.
 		'odd_class'		=> 'odd',
 		'even_class'	=> 'even',
 		'count'			=> 'up',
@@ -387,16 +353,16 @@ function sed_get_comment_class( $atts )
 		'per_name'		=> '1',
 		'cmtr_prefix'	=> 'commentator',
 		'log'			=> 'off',
-		// check-password is possible but potentially more insecure that checking an unpublished (private) email address because all email addresses input are stored as part of the txp_discuss table in plain text.
-		// It's one thing to have someone spoof your comments if they know your email but it's far worse if they can get access to your account in the system by observing data.
+		# check-password is possible but potentially more insecure that checking an unpublished (private) email address because all email addresses input are stored as part of the txp_discuss table in plain text.
+		# It's one thing to have someone spoof your comments if they know your email but it's far worse if they can get access to your account in the system by observing data.
 		), $atts));
 
 	$logging = ('on'===$log);
-	$out_result = $class;	// Every entry gets at least the base 'class'.
+	$out_result = $class;	# Every entry gets at least the base 'class'.
 
-	//
-	//	Process odd/even classes...
-	//
+	#
+	#	Process odd/even classes...
+	#
 	if( empty($hide_odd_even) )
 		{
 		$_comment_num = _sed_cp_get_comment_number( $count );
@@ -406,15 +372,15 @@ function sed_get_comment_class( $atts )
 			$out_result .= ' '.$odd_class;
 		}
 
-	//
-	//	Process the author_class...
-	//
+	#
+	#	Process the author_class...
+	#
 	if( !empty($author_class) and ( _sed_cp_if_author_comment($method) ) )
 		$out_result .= " $author_class";
 	else
 		{
-		//	Append a prefixed, dumbed-down, version of the commentator's name to the class defs.
-		//
+		#	Append a prefixed, dumbed-down, version of the commentator's name to the class defs.
+		#
 		if( !empty( $per_name ) )
 			{
 			$basic_name = stripSpace($thiscomment['name']);
@@ -422,9 +388,9 @@ function sed_get_comment_class( $atts )
 			}
 		}
 
-	//
-	//	If there are any sed_class_extra variables (from the sed_comments tag handler) then append them too!
-	//
+	#
+	#	If there are any sed_class_extra variables (from the sed_comments tag handler) then append them too!
+	#
 	if( !empty($thiscomment['sed_class_extra']) )
 		$out_result .= $thiscomment['sed_class_extra'];
 
@@ -434,16 +400,16 @@ function sed_get_comment_class( $atts )
 function sed_comment_number( $atts )
 	{
 	extract(lAtts(array(
-		'count' => 'up',	// Optional, set to 'down' to get decrementing comment count (for example, for guestbook integration.
+		'count' => 'up',	# Optional, set to 'down' to get decrementing comment count (for example, for guestbook integration.
 	),$atts));
 
 	return _sed_cp_get_comment_number( $count );
 	}
 
-	//
-	//	sed_if_comments is a version of TXP's native if_comments tag but it can
-	// be called from a page template - it's not just limited to a TXP form.
-	//
+	#
+	#	sed_if_comments is a version of TXP's native if_comments tag but it can
+	# be called from a page template - it's not just limited to a TXP form.
+	#
 function sed_if_comments($atts, $thing)
 	{
 	global $thisarticle, $pretext;
@@ -556,17 +522,17 @@ function sed_comments($atts)
 
 	if (@$thisid) $id = $thisid;
 
-	//
-	//	Extract the sed article overrides...
-	//	Access the custom field that houses the vars and explode the string on ';' boundaries.
-	//
+	#
+	#	Extract the sed article overrides...
+	#	Access the custom field that houses the vars and explode the string on ';' boundaries.
+	#
 	$sed_vars = _sed_cp_get_sed_vars( @$thisarticle['sed per-article vars'] );
 
 	$sed_vars = lAtts( array(
-		'sed_delay'			=> '0',		// delay to visible in minutes. Empty/zero means no delay.
-		'sed_ttl'			=> '',		// time to live in minutes. Empty means forever.
-		'sed_on_cull'		=> 'hide',	// action to take when comment is to be culled. hide/spam/delete
-		'sed_ttl_grace'		=> '',		// use this to restrict culling. A grace period (minutes) during which any posted comments will not be culled according to the ttl and on_cull variables. Empty means forever. Zero means no grace period.
+		'sed_delay'			=> '0',		# delay to visible in minutes. Empty/zero means no delay.
+		'sed_ttl'			=> '',		# time to live in minutes. Empty means forever.
+		'sed_on_cull'		=> 'hide',	# action to take when comment is to be culled. hide/spam/delete
+		'sed_ttl_grace'		=> '',		# use this to restrict culling. A grace period (minutes) during which any posted comments will not be culled according to the ttl and on_cull variables. Empty means forever. Zero means no grace period.
 		), $sed_vars );
 	extract( $sed_vars );
 
@@ -597,25 +563,25 @@ function sed_comments($atts)
 				$now = time();
 				$remaining = '';
 
-				//
-				//	If the comment is in a deleting page then check if it is to be culled...
-				//
+				#
+				#	If the comment is in a deleting page then check if it is to be culled...
+				#
 				if( !empty($sed_ttl) ) {
 					$do_cull_check = true;
-					//
-					//	Are we in any grace period???
-					//
+					#
+					#	Are we in any grace period???
+					#
 					if( !empty( $sed_ttl_grace ) && (0 !=$sed_ttl_grace) )
 						$do_cull_check = _sed_cp_if_outside_period( $thisarticle['posted'],$sed_ttl_grace,$vars['time'],$remaining);
-					//
-					//	If not then do the cull checking...
-					//
+					#
+					#	If not then do the cull checking...
+					#
 					if( $do_cull_check )
 						$culled = _sed_cp_if_outside_period( $vars['time'], $sed_ttl, $now, $remaining );
 
-					//
-					//	Display how long to go before culling.
-					//
+					#
+					#	Display how long to go before culling.
+					#
 					if( $do_cull_check && !$culled )
 						$vars['message'] .= "<br/><br/><strong>[MARKED FOR DELETION IN $remaining.]</strong>";
 					}
@@ -627,16 +593,16 @@ function sed_comments($atts)
 					$vars['message'] .= "<br/><br/><strong>[DELETED.]</strong>";
 					}
 				else {
-					//
-					//	See if the comment is in its "hidden" period.
-					//	This is to try and discourage spam-robots that immediately see if their posts appear live.
-					//
+					#
+					#	See if the comment is in its "hidden" period.
+					#	This is to try and discourage spam-robots that immediately see if their posts appear live.
+					#
 					if( !empty( $sed_delay ) && ($sed_delay > '0') )
 						$show = _sed_cp_if_outside_period( $vars['time'], $sed_delay, $now, $remaining );
 
-					//
-					//	Still hidden so show a place-holder comment instead.
-					//
+					#
+					#	Still hidden so show a place-holder comment instead.
+					#
 					if( !$show ) {
 						$extra.= ' delay_queue';
 						$vars['name'] = "[DELAYED]";
@@ -646,9 +612,9 @@ function sed_comments($atts)
 						}
 					}
 
-				//
-				//	Save the additional css class markup for this comment in the vars before parsing the comment form.
-				//
+				#
+				#	Save the additional css class markup for this comment in the vars before parsing the comment form.
+				#
 				$vars['sed_class_extra'] = $extra;
 
 				$GLOBALS['thiscomment'] = $vars;
@@ -658,9 +624,9 @@ function sed_comments($atts)
 
 			$out .= doWrap($comments,$wraptag,$break,$class,$breakclass);
 
-			//
-			//	Process the culled list...
-			//
+			#
+			#	Process the culled list...
+			#
 			if ( !empty($culled_comments) ) {
 				foreach( $culled_comments as $comment )	{
 					if( 'delete' == $sed_on_cull )
@@ -676,7 +642,6 @@ function sed_comments($atts)
 	return $out;
 	}
 # ------------------  END TAG HANDLERS  ---------------------
-
 # --- END PLUGIN CODE ---
 /*
 # --- BEGIN PLUGIN CSS ---
