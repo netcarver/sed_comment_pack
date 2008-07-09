@@ -1,18 +1,7 @@
 <?php
 
-$plugin['revision'] = '$LastChangedRevision$';
-
-$revision = @$plugin['revision'];
-if( !empty( $revision ) )
-	{
-	$parts = explode( ' ' , trim( $revision , '$' ) );
-	$revision = $parts[1];
-	if( !empty( $revision ) )
-		$revision = '.' . $revision;
-	}
-
 $plugin['name'] = 'sed_comment_pack';
-$plugin['version'] = '0.7' . $revision;
+$plugin['version'] = '0.7';
 $plugin['author'] = 'Netcarver';
 $plugin['author_uri'] = 'http://txp-plugins.netcarving.com';
 $plugin['description'] = 'Additional comment tags.';
