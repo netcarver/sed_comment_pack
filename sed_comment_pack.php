@@ -25,6 +25,7 @@ if( 'public' === @txpinterface )
 	register_callback( '_sed_cp_override_comment_settings' , 'pretext_set' );
 	}
 
+# ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
 function _sed_cp_override_comment_settings( $event , $step )
 	{
 	global $pretext , $prefs , $sed_cp_sections , $thisarticle;
@@ -56,7 +57,6 @@ function _sed_cp_override_comment_settings( $event , $step )
 		}
 	}
 
-# ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
 function _sed_cp_get_sed_vars( $args )
 	{
 	$out = array();
