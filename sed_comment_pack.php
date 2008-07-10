@@ -1,7 +1,7 @@
 <?php
 
-$plugin['name'] = 'sed_comment_pack';
-$plugin['version'] = '0.7';
+$plugin['name'] = 'sed_comment_pack_exp';
+$plugin['version'] = '0.7(exp)';
 $plugin['author'] = 'Netcarver';
 $plugin['author_uri'] = 'http://txp-plugins.netcarving.com';
 $plugin['description'] = 'Additional comment tags.';
@@ -10,6 +10,52 @@ $plugin['type'] = 0;
 @include_once('../zem_tpl.php');
 
 # --- BEGIN PLUGIN CODE ---
+
+global $sed_cp_sections;
+$sed_cp_sections = array	(		# Enter your per-section comment expiration & default action overrides here...
+	'about' 	=> 	array	(
+		'comments_on_default'		=> 1,
+		'comments_disabled_after' 	=> 800, # integer; number of days.
+		'comments_moderate'			=> 0,
+		),
+	);
+
+if( 'public' === @txpinterface )
+	{
+	register_callback( '_sed_cp_override_comment_settings' , 'pretext_set' );
+	}
+
+function _sed_cp_override_comment_settings( $event , $step )
+	{
+	global $pretext , $prefs , $sed_cp_sections , $thisarticle;
+
+	# Match any section override?
+	$data = @$sed_cp_sections[$pretext['s']];
+	if( !is_array( $data ) )
+		return;	# no it doesn't
+
+	foreach( $data as $name => $section_value )
+		{
+		$prefs[$name] = $section_value;		# overwrite in $prefs in case anyone looks there
+		global $$name;						# As prefs has been extracted, overwrite global vars of same name...
+		$$name = $section_value;
+		}
+
+	# If in single article context, override the article's 'Annotate' DB setting...
+	global $comments_disabled_after;
+	if( isset($thisarticle['annotate']) && isset($thisarticle['posted']) )
+		{
+		$uPosted  = $thisarticle['posted'];
+		if($comments_disabled_after)
+			{
+			$lifespan = ( $comments_disabled_after * 86400 );
+			$timesince = ( time() - $uPosted );
+			$override_annotate = ( $lifespan > $timesince );
+			$thisarticle['annotate'] = $override_annotate;
+			}
+		}
+	}
+
 # ---------------- PRIVATE FUNCTIONS FOLLOW ------------------
 function _sed_cp_get_sed_vars( $args )
 	{
@@ -659,13 +705,13 @@ function sed_comments($atts)
 # --- BEGIN PLUGIN HELP ---
 <div id="sed_help">
 
-h1. SED Comment Pack Plugin
+h1. Comment Pack
 
-v 0.7 December 3rd, 2007.
+v 0.7(exp)
 
 New in this version...
 
-* Support for delayed comment posting and culling.
+* Per-section overrides (*NB* requires textpattern 4.0.7 or above)
 
 h2. Summary
 
