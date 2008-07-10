@@ -13,7 +13,7 @@ $plugin['type'] = 0;
 
 global $sed_cp_sections;
 $sed_cp_sections = array	(		# Enter your per-section comment expiration & default action overrides here...
-	'about' 	=> 	array	(
+	'put-your-section-here' 	=> 	array	(
 		'comments_on_default'		=> 1,
 		'comments_disabled_after' 	=> 800, # integer; number of days.
 		'comments_moderate'			=> 0,
