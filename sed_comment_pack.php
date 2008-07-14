@@ -136,7 +136,7 @@ function _sed_cp_if_author_comment( $method )
 					$out_result = TRUE;			#	TRUE as we have already checked the password as part of the SQL query.
 				else
 					{
-					$_authors_mail = $_sed_cached_author_data['email'];
+					$_authors_mail = strtolower( $_sed_cached_author_data['email'] );
 					if( !empty($_authors_mail) )
 						{
 						#	If the name & email address of the commentor and author match then this
