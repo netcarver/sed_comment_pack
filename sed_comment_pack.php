@@ -1,7 +1,7 @@
 <?php
 
-$plugin['name'] = 'sed_comment_pack_exp';
-$plugin['version'] = '0.7(exp)';
+$plugin['name'] = 'sed_comment_pack';
+$plugin['version'] = '0.7';
 $plugin['author'] = 'Netcarver';
 $plugin['author_uri'] = 'http://txp-plugins.netcarving.com';
 $plugin['description'] = 'Additional comment tags.';
