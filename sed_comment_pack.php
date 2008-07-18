@@ -707,11 +707,12 @@ function sed_comments($atts)
 
 h1. Comment Pack
 
-v 0.7(exp)
+v 0.7
 
 New in this version...
 
-* Per-section overrides (*NB* requires textpattern 4.0.7 or above)
+* Bugfix: Comparisons of email addresses now made case insensitive.
+* Per-section overrides (*NB* requires textpattern 4.0.7 or above). To use this feature just edit your plugin source and change the $sed_cp_sections array as needed. 
 
 h2. Summary
 
