@@ -517,6 +517,7 @@ function sed_cp_new_comment_digest( $atts )
 		'limit'				=> '0',			# set to a number > 0 to limit the list length
 		'more'				=> ' &#8230;',
 		'max_visit'			=> 7200,		# length of visit time-out in seconds
+		'empty'				=> gTxt('none'),
 		),$atts));
 
 	$new_comments = _sed_cp_get_comments( $max_visit );
@@ -541,9 +542,12 @@ function sed_cp_new_comment_digest( $atts )
 			else
 				$items[] = $item;
 			}
-		return doLabel($label, $labeltag).doWrap($items, $wraptag, $break, $class);
 		}
-	return '';
+	else
+		{
+		$items[] = $empty;
+		}
+	return doLabel($label, $labeltag).doWrap($items, $wraptag, $break, $class);
 	}
 
 
